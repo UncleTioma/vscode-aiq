@@ -1,0 +1,4 @@
+node_modules/
+
+# Delivery pipeline task artifacts.
+.work/

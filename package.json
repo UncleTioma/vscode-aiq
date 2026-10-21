@@ -1,0 +1,82 @@
+{
+  "name": "ai-quota-monitor",
+  "displayName": "AI Quota Monitor (AIQ)",
+  "description": "VS Code extension monitoring 5h quotas for Antigravity, Claude Code, and Codex",
+  "version": "0.1.1",
+  "publisher": "UncleTioma",
+  "author": {
+    "name": "Artem Voloznov"
+  },
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "keywords": [
+    "quota",
+    "usage",
+    "limits",
+    "claude",
+    "codex",
+    "antigravity",
+    "gemini",
+    "openai",
+    "status bar"
+  ],
+  "galleryBanner": {
+    "color": "#181b30",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiq.showMenu",
+        "title": "AIQ: Show Quotas"
+      },
+      {
+        "command": "aiq.refresh",
+        "title": "AIQ: Refresh"
+      }
+    ],
+    "configuration": {
+      "title": "AI Quota Monitor",
+      "properties": {
+        "aiq.refreshInterval": {
+          "type": "number",
+          "default": 60000,
+          "description": "Polling interval in milliseconds"
+        },
+        "aiq.pinnedItems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of model IDs pinned to the status bar"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "compile": "tsc -p . --noEmit",
+    "live": "esbuild test/test_live.ts --bundle --platform=node --outfile=dist/test_live.js && node dist/test_live.js",
+    "package": "vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.0",
+    "@vscode/vsce": "^3.0.0"
+  }
+}

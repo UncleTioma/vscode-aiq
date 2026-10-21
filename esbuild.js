@@ -1,0 +1,28 @@
+const esbuild = require('esbuild');
+
+const isWatch = process.argv.includes('--watch');
+const isProduction = process.argv.includes('--production');
+
+async function main() {
+  const ctx = await esbuild.context({
+    entryPoints: ['src/extension.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: isProduction,
+    sourcemap: !isProduction,
+    sourcesContent: false,
+    platform: 'node',
+    outfile: 'dist/extension.js',
+    external: ['vscode'],
+    logLevel: 'silent',
+  });
+
+  if (isWatch) {
+    await ctx.watch();
+  } else {
+    await ctx.rebuild();
+    await ctx.dispose();
+  }
+}
+
+main().catch(() => process.exit(1));
