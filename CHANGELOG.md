@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3
+
+- Claude Code: send a Claude Code user agent to the usage API, which otherwise answers 429.
+
+## 0.1.2
+
+- Claude Code: read 5-hour and weekly limits from the OAuth usage API (a fresh CLI process reports no limits), CLI kept as a fallback.
+
 ## 0.1.1
 
 - Antigravity: find the `agy.exe --hub` process and query every listening port over HTTPS and HTTP (fixes "No data available").

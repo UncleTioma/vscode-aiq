@@ -110,15 +110,52 @@ function queryClaudeUsageViaCli(claudeExe: string): Promise<any> {
   });
 }
 
+async function queryClaudeUsageViaOAuth(): Promise<any> {
+  const credPath = path.join(os.homedir(), '.claude', '.credentials.json');
+  const oauth = JSON.parse(fs.readFileSync(credPath, 'utf8')).claudeAiOauth;
+  if (!oauth?.accessToken || (oauth.expiresAt && oauth.expiresAt < Date.now())) {
+    throw new Error('Claude OAuth token missing or expired');
+  }
+  const res = await fetch('https://api.anthropic.com/api/oauth/usage', {
+    headers: {
+      Authorization: `Bearer ${oauth.accessToken}`,
+      'anthropic-beta': 'oauth-2025-04-20',
+      // The endpoint answers 429 to requests without a Claude Code user agent.
+      'User-Agent': 'claude-code/2.1.306',
+    },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) {
+    throw new Error(`Claude usage HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function queryClaudeRateLimits(claudeExe: string | null): Promise<any> {
+  // A fresh CLI process reports rate_limits: null until it makes an API call, so ask the API directly first.
+  try {
+    const data = await queryClaudeUsageViaOAuth();
+    if (data?.five_hour) {
+      return data;
+    }
+  } catch {}
+  if (claudeExe) {
+    try {
+      const usageData = await queryClaudeUsageViaCli(claudeExe);
+      return usageData?.rate_limits;
+    } catch {}
+  }
+  return null;
+}
+
 export class ClaudeCodeProvider implements IQuotaProvider {
   readonly name = 'claude' as const;
 
   async fetchQuota(): Promise<ProviderSnapshot> {
     const claudeExe = findClaudeExecutable();
-    if (claudeExe) {
+    {
       try {
-        const usageData = await queryClaudeUsageViaCli(claudeExe);
-        const rateLimits = usageData?.rate_limits;
+        const rateLimits = await queryClaudeRateLimits(claudeExe);
         if (rateLimits && rateLimits.five_hour) {
           const models: ModelQuotaInfo[] = [];
           const fiveHour = rateLimits.five_hour;
