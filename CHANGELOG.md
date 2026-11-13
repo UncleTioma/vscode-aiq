@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Antigravity: discover active hubs via `~/.gemini/antigravity/daemon/hub_*.json` (new Antigravity versions pass the CSRF token via environment instead of CLI flags) and validate HTTP 200 status responses.
+
 ## 0.1.3
 
 - Claude Code: send a Claude Code user agent to the usage API, which otherwise answers 429.

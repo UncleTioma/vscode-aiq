@@ -2,7 +2,7 @@
   "name": "ai-quota-monitor",
   "displayName": "AI Quota Monitor (AIQ)",
   "description": "VS Code extension monitoring 5h quotas for Antigravity, Claude Code, and Codex",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "UncleTioma",
   "author": {
     "name": "Artem Voloznov"

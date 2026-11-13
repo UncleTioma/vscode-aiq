@@ -1,4 +1,7 @@
 import { exec } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -7,14 +10,78 @@ export interface ProcessTargetInfo {
   pid: number;
   csrfToken: string;
   extensionPort: number;
+  httpPort?: number;
+  httpsPort?: number;
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false;
+  }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err: any) {
+    return err?.code === 'EPERM';
+  }
+}
+
+async function findAntigravityDaemonHubs(): Promise<ProcessTargetInfo[]> {
+  const daemonDir = path.join(os.homedir(), '.gemini', 'antigravity', 'daemon');
+  try {
+    const entries = await fs.promises.readdir(daemonDir, { withFileTypes: true });
+    const hubFiles = await Promise.all(
+      entries
+        .filter(entry => entry.isFile() && /^hub_\d+\.json$/.test(entry.name))
+        .map(async entry => {
+          const filePath = path.join(daemonDir, entry.name);
+          const stat = await fs.promises.stat(filePath);
+          return { filePath, mtimeMs: stat.mtimeMs };
+        })
+    );
+    hubFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+    const result: ProcessTargetInfo[] = [];
+    for (const { filePath } of hubFiles) {
+      try {
+        const raw = JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+        const pid = Number(raw?.pid);
+        const csrfToken = typeof raw?.csrfToken === 'string' ? raw.csrfToken : '';
+        const httpPort = Number(raw?.httpPort) || 0;
+        const httpsPort = Number(raw?.httpsPort) || 0;
+        if (!csrfToken || (!httpPort && !httpsPort) || !isProcessAlive(pid)) {
+          continue;
+        }
+        result.push({
+          pid,
+          csrfToken,
+          extensionPort: httpPort,
+          httpPort: httpPort || undefined,
+          httpsPort: httpsPort || undefined,
+        });
+      } catch {
+        continue;
+      }
+    }
+    return result;
+  } catch {
+    return [];
+  }
 }
 
 export async function findAntigravityProcesses(): Promise<ProcessTargetInfo[]> {
-  const platform = process.platform;
-  if (platform === 'win32') {
-    return findAntigravityProcessesWindows();
+  const hubs = await findAntigravityDaemonHubs();
+  const legacy = process.platform === 'win32'
+    ? await findAntigravityProcessesWindows()
+    : await findAntigravityProcessesUnix();
+  const seenPids = new Set(hubs.map(h => h.pid));
+  for (const proc of legacy) {
+    if (!seenPids.has(proc.pid)) {
+      seenPids.add(proc.pid);
+      hubs.push(proc);
+    }
   }
-  return findAntigravityProcessesUnix();
+  return hubs;
 }
 
 async function findAntigravityProcessesWindows(): Promise<ProcessTargetInfo[]> {

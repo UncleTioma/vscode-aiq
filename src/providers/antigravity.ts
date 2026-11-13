@@ -23,16 +23,34 @@ export class AntigravityProvider implements IQuotaProvider {
 
       let responseData: any = null;
       for (const proc of procs) {
-        const ports = await getListeningPorts(proc.pid);
         const active = this.activeTarget;
         const targets: Array<{ port: number; scheme: 'https' | 'http' }> = [];
-        if (active && ports.includes(active.port)) {
-          targets.push(active);
-        }
-        for (const port of ports) {
-          for (const scheme of ['https', 'http'] as const) {
-            if (!(active && active.port === port && active.scheme === scheme)) {
-              targets.push({ port, scheme });
+        if (proc.httpPort || proc.httpsPort) {
+          const known: Array<{ port: number; scheme: 'https' | 'http' }> = [];
+          if (proc.httpPort) {
+            known.push({ port: proc.httpPort, scheme: 'http' });
+          }
+          if (proc.httpsPort) {
+            known.push({ port: proc.httpsPort, scheme: 'https' });
+          }
+          if (active && known.some(t => t.port === active.port && t.scheme === active.scheme)) {
+            targets.push(active);
+          }
+          for (const target of known) {
+            if (!(active && active.port === target.port && active.scheme === target.scheme)) {
+              targets.push(target);
+            }
+          }
+        } else {
+          const ports = await getListeningPorts(proc.pid);
+          if (active && ports.includes(active.port)) {
+            targets.push(active);
+          }
+          for (const port of ports) {
+            for (const scheme of ['https', 'http'] as const) {
+              if (!(active && active.port === port && active.scheme === scheme)) {
+                targets.push({ port, scheme });
+              }
             }
           }
         }
@@ -133,8 +151,16 @@ export class AntigravityProvider implements IQuotaProvider {
           body += chunk;
         });
         res.on('end', () => {
+          if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
           try {
             const parsed = JSON.parse(body);
+            if (!parsed?.userStatus) {
+              reject(new Error('Invalid response'));
+              return;
+            }
             resolve(parsed);
           } catch {
             reject(new Error('Invalid response'));
